@@ -279,7 +279,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </header>
 
         {/* Dynamic Active Tab View */}
-        <div className="p-4 sm:p-6 md:p-8 flex-1">
+        <div className={`${activeTab === 'pos' ? 'p-2 sm:p-4 lg:p-6' : 'p-4 sm:p-6 md:p-8'} flex-1 min-w-0 flex flex-col`}>
           {activeTab === 'pos' && (
             <AdminPOS
               data={data}

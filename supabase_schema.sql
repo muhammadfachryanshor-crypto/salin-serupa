@@ -18,6 +18,11 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
   meta_description TEXT,
   business_hours_weekdays TEXT,
   business_hours_sunday TEXT,
+  payment_methods JSONB,
+  printer_paper_size TEXT DEFAULT '58mm',
+  printer_auto_print BOOLEAN DEFAULT TRUE,
+  printer_open_drawer BOOLEAN DEFAULT FALSE,
+  printer_footer_note TEXT DEFAULT 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

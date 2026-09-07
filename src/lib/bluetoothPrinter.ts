@@ -1,6 +1,8 @@
 import { EscPosBuilder, PaperSize } from './escpos';
 import { StoreSettings } from '../types';
 
+export type { PaperSize };
+
 export interface PrinterDeviceState {
   connected: boolean;
   deviceName: string | null;
@@ -34,7 +36,7 @@ export interface POSTransaction {
   discount: number;
   tax: number;
   total: number;
-  paymentMethod: 'Tunai' | 'QRIS' | 'Transfer Bank' | 'Debit';
+  paymentMethod: 'Tunai' | 'QRIS' | 'Transfer Bank' | 'Debit' | string;
   cashReceived: number;
   change: number;
   notes?: string;
@@ -109,6 +111,22 @@ class BluetoothPrinterService {
   public setOpenDrawer(open: boolean) {
     this.state.openDrawer = open;
     localStorage.setItem('pos_open_drawer', open ? 'true' : 'false');
+    this.notify();
+  }
+
+  public savePrinterPreferences(prefs: { paperSize?: PaperSize; autoPrint?: boolean; openDrawer?: boolean }) {
+    if (prefs.paperSize !== undefined) {
+      this.state.paperSize = prefs.paperSize;
+      localStorage.setItem('pos_paper_size', prefs.paperSize);
+    }
+    if (prefs.autoPrint !== undefined) {
+      this.state.autoPrint = prefs.autoPrint;
+      localStorage.setItem('pos_auto_print', prefs.autoPrint ? 'true' : 'false');
+    }
+    if (prefs.openDrawer !== undefined) {
+      this.state.openDrawer = prefs.openDrawer;
+      localStorage.setItem('pos_open_drawer', prefs.openDrawer ? 'true' : 'false');
+    }
     this.notify();
   }
 
@@ -571,10 +589,10 @@ class BluetoothPrinterService {
         </style>
       </head>
       <body>
-        <div class="text-center">
-          <div class="title">${settings.store_name || 'SALIN SERUPA'}</div>
-          ${settings.address ? `<div>${settings.address}</div>` : ''}
-          ${settings.whatsapp ? `<div>WA: ${settings.whatsapp}</div>` : ''}
+        <div class="text-center" style="margin-bottom: 6px;">
+          <img src="${settings.logo || '/logo.png'}" alt="Logo" style="max-height: 48px; max-width: 170px; object-fit: contain; margin: 0 auto 4px auto; display: block;" onerror="this.onerror=null; this.src='/logo.png';" />
+          ${settings.address ? `<div style="font-size: 10px; line-height: 1.2;">${settings.address}</div>` : ''}
+          ${settings.whatsapp ? `<div style="font-size: 10px; margin-top: 2px;">WA: ${settings.whatsapp}</div>` : ''}
         </div>
         <div class="divider"></div>
         <div class="flex"><span>No. Nota:</span><span class="bold">${tx.orderNumber}</span></div>

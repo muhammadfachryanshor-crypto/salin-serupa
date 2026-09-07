@@ -14,7 +14,47 @@ export const initialAppData: AppData = {
     meta_title: 'Fotokopi Salin Serupa - Jakarta Utara | Fotokopi, Printing & ATK',
     meta_description: 'Fotokopi Salin Serupa Jakarta Utara menyediakan layanan fotokopi, printing, scan, jilid, laminasi, percetakan dan berbagai kebutuhan ATK.',
     business_hours_weekdays: '09:00 - 21:00 WIB',
-    business_hours_sunday: '09:00 - 20:30 WIB'
+    business_hours_sunday: '09:00 - 20:30 WIB',
+    payment_methods: [
+      {
+        id: 'pay-cash',
+        name: 'Tunai / Cash',
+        type: 'cash',
+        enabled: true,
+        notes: 'Uang pas atau kembalian dihitung otomatis'
+      },
+      {
+        id: 'pay-qris',
+        name: 'QRIS',
+        type: 'qris',
+        enabled: true,
+        account_name: 'Fotokopi Salin Serupa',
+        account_number: 'NMID: ID102003004005',
+        qr_image_url: '',
+        notes: 'Scan via BCA Mobile, GoPay, OVO, ShopeePay, Dana, dll.'
+      },
+      {
+        id: 'pay-transfer',
+        name: 'Transfer Bank',
+        type: 'transfer',
+        enabled: true,
+        account_name: 'Salin Serupa',
+        account_number: 'BCA 123-456-7890',
+        notes: 'Kirim bukti transfer ke WhatsApp kasir'
+      },
+      {
+        id: 'pay-debit',
+        name: 'Debit / EDC',
+        type: 'debit',
+        enabled: true,
+        account_name: 'Mesin EDC Kasir',
+        notes: 'Kartu Debit GPN, Visa, Mastercard'
+      }
+    ],
+    printer_paper_size: '58mm',
+    printer_auto_print: true,
+    printer_open_drawer: false,
+    printer_footer_note: 'Barang yang sudah dibeli tidak dapat ditukar/dikembalikan. Terima kasih!'
   },
   landing: {
     hero: {

@@ -108,7 +108,12 @@ export async function fetchAppDataFromSupabase(client: SupabaseClient): Promise<
       meta_title: settingsRes.data.meta_title || initialAppData.settings.meta_title,
       meta_description: settingsRes.data.meta_description || initialAppData.settings.meta_description,
       business_hours_weekdays: settingsRes.data.business_hours_weekdays || initialAppData.settings.business_hours_weekdays,
-      business_hours_sunday: settingsRes.data.business_hours_sunday || initialAppData.settings.business_hours_sunday
+      business_hours_sunday: settingsRes.data.business_hours_sunday || initialAppData.settings.business_hours_sunday,
+      payment_methods: settingsRes.data.payment_methods || initialAppData.settings.payment_methods,
+      printer_paper_size: settingsRes.data.printer_paper_size || initialAppData.settings.printer_paper_size || '58mm',
+      printer_auto_print: settingsRes.data.printer_auto_print ?? initialAppData.settings.printer_auto_print ?? true,
+      printer_open_drawer: settingsRes.data.printer_open_drawer ?? initialAppData.settings.printer_open_drawer ?? false,
+      printer_footer_note: settingsRes.data.printer_footer_note || initialAppData.settings.printer_footer_note
     } : initialAppData.settings;
 
     // Map landing content
@@ -289,7 +294,7 @@ export async function fetchAppDataFromSupabase(client: SupabaseClient): Promise<
 // --- SUPABASE MUTATION HELPERS ---
 
 export async function saveSettingsToSupabase(client: SupabaseClient, settings: StoreSettings) {
-  const { error } = await client.from('store_settings').upsert({
+  const payload: any = {
     id: 'store-1',
     store_name: settings.store_name,
     whatsapp: settings.whatsapp,
@@ -303,9 +308,40 @@ export async function saveSettingsToSupabase(client: SupabaseClient, settings: S
     meta_description: settings.meta_description,
     business_hours_weekdays: settings.business_hours_weekdays,
     business_hours_sunday: settings.business_hours_sunday,
+    payment_methods: settings.payment_methods,
+    printer_paper_size: settings.printer_paper_size || '58mm',
+    printer_auto_print: settings.printer_auto_print ?? true,
+    printer_open_drawer: settings.printer_open_drawer ?? false,
+    printer_footer_note: settings.printer_footer_note,
     updated_at: new Date().toISOString()
-  });
-  if (error) throw new Error(`Supabase Error: ${error.message}`);
+  };
+
+  const { error } = await client.from('store_settings').upsert(payload);
+  if (error) {
+    // If the database table does not have the new columns yet, fallback to saving base fields
+    if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
+      const fallbackPayload = {
+        id: 'store-1',
+        store_name: settings.store_name,
+        whatsapp: settings.whatsapp,
+        address: settings.address,
+        latitude: settings.latitude,
+        longitude: settings.longitude,
+        maps_url: settings.maps_url,
+        logo: settings.logo,
+        favicon: settings.favicon,
+        meta_title: settings.meta_title,
+        meta_description: settings.meta_description,
+        business_hours_weekdays: settings.business_hours_weekdays,
+        business_hours_sunday: settings.business_hours_sunday,
+        updated_at: new Date().toISOString()
+      };
+      const { error: fallbackError } = await client.from('store_settings').upsert(fallbackPayload);
+      if (fallbackError) throw new Error(`Supabase Error: ${fallbackError.message}`);
+      return;
+    }
+    throw new Error(`Supabase Error: ${error.message}`);
+  }
 }
 
 export async function saveLandingToSupabase(client: SupabaseClient, landing: LandingContent) {

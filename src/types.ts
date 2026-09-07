@@ -1,3 +1,14 @@
+export interface PaymentMethodConfig {
+  id: string;
+  name: string;
+  type: 'cash' | 'qris' | 'transfer' | 'debit' | 'other';
+  enabled: boolean;
+  account_name?: string;
+  account_number?: string;
+  qr_image_url?: string;
+  notes?: string;
+}
+
 export interface StoreSettings {
   id: string;
   store_name: string;
@@ -12,6 +23,11 @@ export interface StoreSettings {
   meta_description: string;
   business_hours_weekdays: string;
   business_hours_sunday: string;
+  payment_methods?: PaymentMethodConfig[];
+  printer_paper_size?: '58mm' | '80mm';
+  printer_auto_print?: boolean;
+  printer_open_drawer?: boolean;
+  printer_footer_note?: string;
 }
 
 export interface KeunggulanItem {
