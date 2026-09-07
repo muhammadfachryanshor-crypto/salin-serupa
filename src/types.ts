@@ -24,6 +24,7 @@ export interface StoreSettings {
   business_hours_weekdays: string;
   business_hours_sunday: string;
   payment_methods?: PaymentMethodConfig[];
+  qris_image?: string;
   printer_paper_size?: '58mm' | '80mm';
   printer_auto_print?: boolean;
   printer_open_drawer?: boolean;

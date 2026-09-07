@@ -23,7 +23,10 @@ import {
   Receipt,
   Eye,
   PanelRight,
-  Split
+  Split,
+  Maximize2,
+  X,
+  Download
 } from 'lucide-react';
 import { AppData, Product, StoreSettings } from '../../types';
 import {
@@ -62,6 +65,7 @@ export const AdminPOS: React.FC<AdminPOSProps> = ({
   const [cart, setCart] = useState<POSCartItem[]>([]);
   const [mobileTab, setMobileTab] = useState<'catalog' | 'checkout' | 'preview'>('catalog');
   const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
+  const [showQrisModal, setShowQrisModal] = useState(false);
   const [isDesktopPreviewDocked, setIsDesktopPreviewDocked] = useState(false);
 
   // Customer & Payment Info
@@ -1013,37 +1017,62 @@ export const AdminPOS: React.FC<AdminPOSProps> = ({
                 </div>
               </div>
             ) : currentMethodConfig?.type === 'qris' || paymentMethod === 'QRIS' ? (
-              <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200 text-xs space-y-2 text-blue-900">
-                <div className="flex items-center justify-between font-bold text-[#00288e]">
+              <div className="p-3.5 bg-gradient-to-br from-purple-50 via-blue-50/50 to-white rounded-xl border border-purple-200 text-xs space-y-2.5 text-purple-950">
+                <div className="flex items-center justify-between font-bold text-purple-900">
                   <div className="flex items-center gap-1.5">
-                    <QrCode className="w-4 h-4" />
+                    <QrCode className="w-4 h-4 text-purple-600" />
                     <span>Scan QRIS Kasir ({paymentMethod})</span>
                   </div>
-                  <span className="text-[11px] font-mono font-bold">Rp {formatRupiah(grandTotal)}</span>
+                  <span className="text-xs font-mono font-black text-purple-950">Rp {formatRupiah(grandTotal)}</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
                   Arahkan pelanggan scan barcode QRIS toko. Total transaksi: <strong className="text-slate-900">Rp {formatRupiah(grandTotal)}</strong>.
                 </p>
                 {currentMethodConfig?.account_number && (
-                  <div className="text-[11px] bg-white p-2 rounded-lg border border-blue-200 flex justify-between items-center text-slate-800">
-                    <span>NMID / ID Merchant:</span>
-                    <span className="font-mono font-bold">{currentMethodConfig.account_number}</span>
+                  <div className="text-[11px] bg-white p-2 rounded-lg border border-purple-200 flex justify-between items-center text-slate-800 shadow-2xs">
+                    <span className="text-slate-500">NMID / ID Merchant:</span>
+                    <span className="font-mono font-bold text-purple-900">{currentMethodConfig.account_number}</span>
                   </div>
                 )}
                 {currentMethodConfig?.notes && (
-                  <p className="text-[10px] text-slate-500 italic bg-white/70 p-1.5 rounded-md">
+                  <p className="text-[10px] text-slate-500 italic bg-white/70 p-1.5 rounded-md border border-purple-100">
                     Catatan: {currentMethodConfig.notes}
                   </p>
                 )}
-                {(currentMethodConfig?.qr_image_url || data.settings?.qris_image) && (
-                  <div className="pt-1 flex items-center gap-2">
-                    <img
-                      src={currentMethodConfig?.qr_image_url || data.settings.qris_image}
-                      alt="QRIS Toko"
-                      referrerPolicy="no-referrer"
-                      className="w-14 h-14 object-contain rounded-lg border border-white bg-white shadow-2xs"
-                    />
-                    <span className="text-[11px] text-slate-500 font-medium">QRIS Resmi Toko</span>
+
+                {/* QRIS Barcode Image Card & Zoom Trigger */}
+                {(currentMethodConfig?.qr_image_url || data.settings?.qris_image) ? (
+                  <div className="pt-1.5 flex items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-purple-200 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        onClick={() => setShowQrisModal(true)}
+                        className="p-1 bg-white rounded-lg border border-purple-300 shadow-xs cursor-pointer hover:scale-105 transition-transform"
+                      >
+                        <img
+                          src={currentMethodConfig?.qr_image_url || data.settings.qris_image}
+                          alt="QRIS Toko"
+                          referrerPolicy="no-referrer"
+                          className="w-12 h-12 object-contain rounded"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-xs font-extrabold text-slate-900 block">Barcode QRIS Resmi</span>
+                        <span className="text-[10px] text-purple-700 font-bold">Siap Discan Pelanggan</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowQrisModal(true)}
+                      className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>Perbesar QRIS</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 flex items-center justify-between">
+                    <span>⚠️ Belum ada foto barcode QRIS di pengaturan</span>
                   </div>
                 )}
               </div>
@@ -1431,6 +1460,70 @@ export const AdminPOS: React.FC<AdminPOSProps> = ({
         settings={data.settings}
         onShowToast={onShowToast}
       />
+
+      {/* MODAL: QRIS Barcode Display (Scan Pelanggan) */}
+      {showQrisModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4 relative">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowQrisModal(false)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-bold uppercase tracking-wider">
+                <QrCode className="w-3.5 h-3.5" />
+                <span>QRIS Pembayaran</span>
+              </div>
+              <h3 className="text-lg font-black text-slate-900">
+                {data.settings?.store_name || 'Fotokopi Salin Serupa'}
+              </h3>
+              {currentMethodConfig?.account_number && (
+                <p className="text-xs font-mono font-bold text-slate-500">
+                  {currentMethodConfig.account_number}
+                </p>
+              )}
+            </div>
+
+            {/* Large QRIS Image */}
+            <div className="p-3 bg-white rounded-2xl border-2 border-dashed border-purple-400 inline-block shadow-sm">
+              <img
+                src={currentMethodConfig?.qr_image_url || data.settings?.qris_image}
+                alt="Barcode QRIS"
+                referrerPolicy="no-referrer"
+                className="w-56 h-56 object-contain rounded-xl mx-auto"
+              />
+            </div>
+
+            {/* Total Amount in Big Bold Rupiah */}
+            <div className="bg-purple-50 p-3.5 rounded-2xl border border-purple-200 space-y-0.5">
+              <span className="text-[11px] font-bold text-purple-700 block uppercase tracking-wider">
+                Total Tagihan:
+              </span>
+              <span className="text-2xl font-black text-purple-950 font-mono">
+                Rp {formatRupiah(grandTotal)}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Scan barcode di atas menggunakan GoPay, OVO, Dana, ShopeePay, BCA Mobile, atau aplikasi QRIS lainnya.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowQrisModal(false)}
+              className="w-full py-2.5 bg-[#00288e] hover:bg-[#001f70] text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+            >
+              Tutup QRIS
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

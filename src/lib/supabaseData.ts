@@ -113,7 +113,8 @@ export async function fetchAppDataFromSupabase(client: SupabaseClient): Promise<
       printer_paper_size: settingsRes.data.printer_paper_size || initialAppData.settings.printer_paper_size || '58mm',
       printer_auto_print: settingsRes.data.printer_auto_print ?? initialAppData.settings.printer_auto_print ?? true,
       printer_open_drawer: settingsRes.data.printer_open_drawer ?? initialAppData.settings.printer_open_drawer ?? false,
-      printer_footer_note: settingsRes.data.printer_footer_note || initialAppData.settings.printer_footer_note
+      printer_footer_note: settingsRes.data.printer_footer_note || initialAppData.settings.printer_footer_note,
+      qris_image: settingsRes.data.qris_image || initialAppData.settings.qris_image
     } : initialAppData.settings;
 
     // Map landing content
@@ -313,6 +314,7 @@ export async function saveSettingsToSupabase(client: SupabaseClient, settings: S
     printer_auto_print: settings.printer_auto_print ?? true,
     printer_open_drawer: settings.printer_open_drawer ?? false,
     printer_footer_note: settings.printer_footer_note,
+    qris_image: settings.qris_image,
     updated_at: new Date().toISOString()
   };
 

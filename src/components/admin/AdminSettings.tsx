@@ -28,7 +28,8 @@ import {
   CheckCircle2,
   FileText,
   Link2,
-  Key
+  Key,
+  X
 } from 'lucide-react';
 import { getSupabaseClient, getSupabaseCredentials, saveSupabaseCredentials, clearSupabaseCredentials, testSupabaseConnection as testSupabaseLib, getSupabaseHeaders } from '../../lib/supabase';
 import { saveSettingsToSupabase } from '../../lib/supabaseData';
@@ -55,6 +56,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [storeName, setStoreName] = useState(settings.store_name);
   const [logo, setLogo] = useState(settings.logo || '/logo.jpg');
   const [favicon, setFavicon] = useState(settings.favicon || '/logo.jpg');
+  const [qrisImage, setQrisImage] = useState(settings.qris_image || '');
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const [address, setAddress] = useState(settings.address);
   const [weekdaysHours, setWeekdaysHours] = useState(settings.business_hours_weekdays);
@@ -103,6 +105,8 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [loading, setLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [qrisUploading, setQrisUploading] = useState(false);
+  const [methodQrisUploading, setMethodQrisUploading] = useState(false);
 
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [sqlContent, setSqlContent] = useState('');
@@ -236,6 +240,82 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleUploadQrisBarcode = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Mohon pilih file gambar yang valid (.png, .jpg, .svg, .webp)', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      onShowToast('Ukuran gambar barcode QRIS maksimal 5MB', 'error');
+      return;
+    }
+
+    setQrisUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setQrisImage(dataUrl);
+
+      // Auto-assign to any active QRIS payment method if it does not have a custom image yet
+      const updatedMethods = paymentMethods.map(m => {
+        if (m.type === 'qris') {
+          return { ...m, qr_image_url: dataUrl };
+        }
+        return m;
+      });
+      setPaymentMethods(updatedMethods);
+
+      setQrisUploading(false);
+      onShowToast('Foto barcode QRIS berhasil diunggah! Klik "Simpan Semua Pengaturan" untuk menerapkan.');
+    };
+    reader.onerror = () => {
+      setQrisUploading(false);
+      onShowToast('Gagal memproses file gambar QRIS', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveQrisBarcode = () => {
+    if (!window.confirm('Hapus gambar barcode QRIS toko?')) return;
+    setQrisImage('');
+    const updatedMethods = paymentMethods.map(m => {
+      if (m.type === 'qris') {
+        return { ...m, qr_image_url: '' };
+      }
+      return m;
+    });
+    setPaymentMethods(updatedMethods);
+    onShowToast('Barcode QRIS dihapus. Klik "Simpan Semua Pengaturan" untuk menyimpan.');
+  };
+
+  const handleUploadMethodQris = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Mohon pilih file gambar yang valid (.png, .jpg, .svg, .webp)', 'error');
+      return;
+    }
+
+    setMethodQrisUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setMethodFormData(prev => ({ ...prev, qr_image_url: dataUrl }));
+      setMethodQrisUploading(false);
+      onShowToast('Gambar barcode QRIS metode berhasil dipilih');
+    };
+    reader.onerror = () => {
+      setMethodQrisUploading(false);
+      onShowToast('Gagal membaca gambar QRIS', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
   // --- SAVE ALL SETTINGS HELPER ---
   const saveAllSettings = async (customOverrides?: Partial<StoreSettings>) => {
     setLoading(true);
@@ -245,6 +325,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
       store_name: storeName,
       logo,
       favicon,
+      qris_image: qrisImage,
       whatsapp,
       address,
       business_hours_weekdays: weekdaysHours,
@@ -790,7 +871,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
                 Kelola Tipe & Metode Pembayaran Kasir POS
               </h3>
               <p className="text-xs text-slate-500">
-                Atur metode pembayaran yang muncul pada kasir POS (Tunai, QRIS, Transfer Bank, Mesin EDC, dsb.)
+                Atur barcode QRIS toko dan metode pembayaran yang muncul pada kasir POS (Tunai, QRIS, Transfer Bank, Mesin EDC, dsb.)
               </p>
             </div>
 
@@ -813,107 +894,259 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
             </div>
           </div>
 
-          {/* Payment Methods Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {paymentMethods.map((method) => {
-              const getIcon = () => {
-                switch (method.type) {
-                  case 'cash': return <Banknote className="w-5 h-5 text-emerald-600" />;
-                  case 'qris': return <QrCode className="w-5 h-5 text-purple-600" />;
-                  case 'transfer': return <CreditCard className="w-5 h-5 text-blue-600" />;
-                  case 'debit': return <CreditCard className="w-5 h-5 text-amber-600" />;
-                  default: return <CreditCard className="w-5 h-5 text-slate-600" />;
-                }
-              };
+          {/* DEDICATED QRIS BARCODE UPLOAD & MANAGEMENT SECTION */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/70 via-blue-50/50 to-slate-50 border border-purple-200/80 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                    Barcode QRIS Resmi Toko (Scan Kasir & Online)
+                    {qrisImage ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800">
+                        ✓ Barcode Terpasang
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800">
+                        Belum Upload Barcode
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Upload gambar barcode QRIS merchant Anda untuk discan pelanggan saat checkout di kasir POS atau WhatsApp
+                  </p>
+                </div>
+              </div>
 
-              return (
-                <div
-                  key={method.id}
-                  className={`p-4 rounded-2xl border transition-all ${
-                    method.enabled
-                      ? 'bg-white border-slate-200 shadow-xs hover:border-[#00288e]/40'
-                      : 'bg-slate-50 border-slate-200 opacity-60'
-                  }`}
+              {qrisImage && (
+                <a
+                  href={qrisImage}
+                  download="qris-salin-serupa.png"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                        {getIcon()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-extrabold text-sm text-slate-900">{method.name}</h4>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                            method.enabled
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-200 text-slate-600'
-                          }`}>
-                            {method.enabled ? 'Aktif di POS' : 'Nonaktif'}
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Unduh Barcode</span>
+                </a>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+              {/* QRIS Barcode Preview Box */}
+              <div className="md:col-span-4 flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-purple-200 shadow-xs text-center space-y-3">
+                {qrisImage ? (
+                  <div className="space-y-2 w-full flex flex-col items-center">
+                    <div className="p-2 bg-white rounded-xl border-2 border-dashed border-purple-400 max-w-[180px] shadow-sm">
+                      <img
+                        src={qrisImage}
+                        alt="QRIS Toko Resmi"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-auto max-h-[170px] object-contain rounded-lg"
+                      />
+                    </div>
+                    <div className="text-[11px] font-bold text-purple-900 bg-purple-50 px-2.5 py-1 rounded-md">
+                      {storeName || 'Fotokopi Salin Serupa'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 px-4 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+                      <QrCode className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500">Belum ada gambar QRIS</span>
+                    <span className="text-[10px] text-slate-400">Klik tombol di samping untuk upload foto/file QRIS</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Controls & Settings */}
+              <div className="md:col-span-8 space-y-3">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Upload File Barcode / Gambar QRIS Baru:
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-xs transition-all active:scale-95">
+                      <Upload className="w-4 h-4" />
+                      <span>{qrisUploading ? 'Memproses...' : 'Pilih File / Foto Barcode QRIS'}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={handleUploadQrisBarcode}
+                        disabled={qrisUploading}
+                      />
+                    </label>
+
+                    {qrisImage && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveQrisBarcode}
+                        className="px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Hapus Barcode</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Format yang didukung: <strong>PNG, JPG, JPEG, WEBP, SVG</strong> (Maksimal 5MB). Gambar akan otomatis terintegrasi ke kasir POS.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-purple-100">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Atau Masukkan URL Link Gambar QRIS:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={qrisImage}
+                      onChange={(e) => {
+                        setQrisImage(e.target.value);
+                        const updated = paymentMethods.map(m => m.type === 'qris' ? { ...m, qr_image_url: e.target.value } : m);
+                        setPaymentMethods(updated);
+                      }}
+                      placeholder="https://example.com/barcode-qris.png"
+                      className="flex-1 px-3 py-2 text-xs border border-purple-200 bg-white rounded-xl focus:border-purple-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white/80 rounded-xl border border-purple-200/60 text-[11px] text-slate-600 space-y-1">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>💡 Kompatibilitas QRIS Nasional Indonesia:</span>
+                  </div>
+                  <p className="text-slate-500">
+                    Pelanggan dapat melakukan scan menggunakan semua aplikasi dompet digital & mobile banking (GoPay, OVO, Dana, ShopeePay, LinkAja, BCA Mobile, Livin' Mandiri, BRImo, BNI Mobile, AstraPay, dll).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Methods Grid */}
+          <div className="space-y-3">
+            <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[#00288e]" />
+              Daftar Pilihan Metode Pembayaran di Kasir
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {paymentMethods.map((method) => {
+                const getIcon = () => {
+                  switch (method.type) {
+                    case 'cash': return <Banknote className="w-5 h-5 text-emerald-600" />;
+                    case 'qris': return <QrCode className="w-5 h-5 text-purple-600" />;
+                    case 'transfer': return <CreditCard className="w-5 h-5 text-blue-600" />;
+                    case 'debit': return <CreditCard className="w-5 h-5 text-amber-600" />;
+                    default: return <CreditCard className="w-5 h-5 text-slate-600" />;
+                  }
+                };
+
+                return (
+                  <div
+                    key={method.id}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      method.enabled
+                        ? 'bg-white border-slate-200 shadow-xs hover:border-[#00288e]/40'
+                        : 'bg-slate-50 border-slate-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                          {getIcon()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-extrabold text-sm text-slate-900">{method.name}</h4>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                              method.enabled
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}>
+                              {method.enabled ? 'Aktif di POS' : 'Nonaktif'}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-medium capitalize">
+                            Tipe: {method.type === 'cash' ? 'Tunai / Cash' : method.type === 'qris' ? 'QRIS Digital' : method.type === 'transfer' ? 'Transfer Bank' : method.type === 'debit' ? 'Kartu Debit / EDC' : 'Lainnya'}
                           </span>
                         </div>
-                        <span className="text-[11px] text-slate-500 font-medium capitalize">
-                          Tipe: {method.type === 'cash' ? 'Tunai / Cash' : method.type === 'qris' ? 'QRIS Digital' : method.type === 'transfer' ? 'Transfer Bank' : method.type === 'debit' ? 'Kartu Debit / EDC' : 'Lainnya'}
-                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePaymentMethod(method.id)}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-colors ${
+                            method.enabled
+                              ? 'text-emerald-700 hover:bg-emerald-50'
+                              : 'text-slate-500 hover:bg-slate-200'
+                          }`}
+                          title={method.enabled ? 'Nonaktifkan' : 'Aktifkan'}
+                        >
+                          <CheckCircle2 className={`w-4 h-4 ${method.enabled ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditMethod(method)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-[#00288e] hover:bg-blue-50 transition-colors"
+                          title="Edit Metode"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        {paymentMethods.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePaymentMethod(method.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="Hapus Metode"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePaymentMethod(method.id)}
-                        className={`p-1.5 rounded-lg text-xs font-bold transition-colors ${
-                          method.enabled
-                            ? 'text-emerald-700 hover:bg-emerald-50'
-                            : 'text-slate-500 hover:bg-slate-200'
-                        }`}
-                        title={method.enabled ? 'Nonaktifkan' : 'Aktifkan'}
-                      >
-                        <CheckCircle2 className={`w-4 h-4 ${method.enabled ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditMethod(method)}
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-[#00288e] hover:bg-blue-50 transition-colors"
-                        title="Edit Metode"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      {paymentMethods.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePaymentMethod(method.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title="Hapus Metode"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    {/* Method Details (Account / NMID / Notes / QR Thumbnail) */}
+                    <div className="mt-3 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
+                      {method.account_number && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 text-[11px]">No. Rekening / NMID:</span>
+                          <span className="font-mono font-bold text-slate-800">{method.account_number}</span>
+                        </div>
+                      )}
+                      {method.account_name && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 text-[11px]">Atas Nama / Merchant:</span>
+                          <span className="font-semibold text-slate-800">{method.account_name}</span>
+                        </div>
+                      )}
+                      {(method.qr_image_url || (method.type === 'qris' && qrisImage)) && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-slate-500 text-[11px]">Barcode QRIS:</span>
+                          <div className="flex items-center gap-1.5">
+                            <img
+                              src={method.qr_image_url || qrisImage}
+                              alt="QRIS Barcode"
+                              referrerPolicy="no-referrer"
+                              className="w-7 h-7 object-contain rounded border border-purple-200 bg-white"
+                            />
+                            <span className="text-[10px] text-purple-700 font-bold">Siap Scan</span>
+                          </div>
+                        </div>
+                      )}
+                      {method.notes && (
+                        <p className="text-[11px] text-slate-500 italic mt-1 bg-slate-50 p-1.5 rounded-lg">
+                          Catatan: {method.notes}
+                        </p>
                       )}
                     </div>
                   </div>
-
-                  {/* Method Details (Account / NMID / Notes) */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
-                    {method.account_number && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500 text-[11px]">No. Rekening / NMID:</span>
-                        <span className="font-mono font-bold text-slate-800">{method.account_number}</span>
-                      </div>
-                    )}
-                    {method.account_name && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500 text-[11px]">Atas Nama / Merchant:</span>
-                        <span className="font-semibold text-slate-800">{method.account_name}</span>
-                      </div>
-                    )}
-                    {method.notes && (
-                      <p className="text-[11px] text-slate-500 italic mt-1 bg-slate-50 p-1.5 rounded-lg">
-                        Catatan: {method.notes}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Action Save Button */}
@@ -925,7 +1158,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
               className="bg-[#00288e] hover:bg-[#001f70] text-white px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
             >
               <Save className="w-4 h-4" />
-              <span>{loading ? 'Menyimpan...' : 'Simpan Perubahan Metode Pembayaran'}</span>
+              <span>{loading ? 'Menyimpan...' : 'Simpan Semua Pengaturan & QRIS'}</span>
             </button>
           </div>
         </div>
@@ -1366,6 +1599,72 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-xl font-semibold text-slate-900"
                 />
               </div>
+
+              {/* QRIS BARCODE UPLOAD IN MODAL (Only when QRIS selected) */}
+              {methodFormData.type === 'qris' && (
+                <div className="p-3.5 bg-purple-50/70 rounded-xl border border-purple-200 space-y-2.5">
+                  <label className="block text-slate-800 font-bold flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4 text-purple-600" />
+                    <span>Foto / Gambar Barcode QRIS:</span>
+                  </label>
+
+                  <div className="flex items-center gap-3">
+                    {methodFormData.qr_image_url || qrisImage ? (
+                      <div className="relative group shrink-0">
+                        <img
+                          src={methodFormData.qr_image_url || qrisImage}
+                          alt="QRIS Preview"
+                          referrerPolicy="no-referrer"
+                          className="w-16 h-16 object-contain rounded-lg border border-purple-300 bg-white p-1 shadow-2xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMethodFormData(prev => ({ ...prev, qr_image_url: '' }))}
+                          className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-xs hover:bg-red-700"
+                          title="Hapus gambar"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg border border-dashed border-purple-300 bg-purple-100/50 flex flex-col items-center justify-center text-purple-400 shrink-0">
+                        <QrCode className="w-6 h-6" />
+                        <span className="text-[9px] font-bold">No Image</span>
+                      </div>
+                    )}
+
+                    <div className="flex-1 space-y-1.5">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-xs cursor-pointer shadow-2xs transition-all">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{methodQrisUploading ? 'Memproses...' : 'Upload Foto Barcode QRIS'}</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          className="hidden"
+                          onChange={handleUploadMethodQris}
+                          disabled={methodQrisUploading}
+                        />
+                      </label>
+                      <p className="text-[10px] text-slate-500">
+                        Pilih foto QRIS langsung dari HP atau komputer (PNG / JPG / WEBP).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-600 font-semibold mb-0.5">
+                      Atau URL Gambar QRIS:
+                    </label>
+                    <input
+                      type="url"
+                      value={methodFormData.qr_image_url || ''}
+                      onChange={e => setMethodFormData({ ...methodFormData, qr_image_url: e.target.value })}
+                      placeholder="https://.../barcode.png"
+                      className="w-full px-2.5 py-1.5 border border-purple-200 bg-white rounded-lg text-xs"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Catatan Panduan Kasir & Pelanggan:</label>
