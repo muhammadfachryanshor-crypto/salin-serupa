@@ -1,0 +1,6 @@
+{
+  "name": "Fotokopi Salin Serupa - Jakarta Utara",
+  "description": "Website PWA profesional untuk toko fotokopi, printing, dan ATK di Jakarta Utara dengan katalog produk, pemesanan WhatsApp, CMS admin, dan sistem POS kasir terhubung driver printer Bluetooth thermal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
