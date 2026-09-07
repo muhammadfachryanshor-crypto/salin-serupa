@@ -86,10 +86,12 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     };
 
     try {
+      let supaSuccess = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await saveProductToSupabase(client, payload);
+          supaSuccess = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase product save failed, falling back to API:', supaErr);
         }
@@ -98,17 +100,23 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       const url = editingProduct ? `/api/admin/products/${editingProduct.id}` : '/api/admin/products';
       const method = editingProduct ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        },
-        body: JSON.stringify(payload)
-      });
+      let apiSuccess = false;
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          },
+          body: JSON.stringify(payload)
+        });
+        apiSuccess = res.ok;
+      } catch (e) {
+        console.warn('API save call failed:', e);
+      }
 
-      if (res.ok) {
+      if (supaSuccess || apiSuccess) {
         onShowToast(editingProduct ? 'Produk berhasil diperbarui!' : 'Produk baru berhasil ditambahkan!');
         setModalOpen(false);
         onRefreshData();
@@ -125,23 +133,30 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   const handleDelete = async (id: string) => {
     if (!window.confirm('Yakin ingin menghapus produk ini?')) return;
     try {
+      let supaDeleted = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await deleteProductFromSupabase(client, id);
+          supaDeleted = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase product delete failed, falling back to API:', supaErr);
         }
       }
 
-      const res = await fetch(`/api/admin/products/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        }
-      });
-      if (res.ok) {
+      let apiDeleted = false;
+      try {
+        const res = await fetch(`/api/admin/products/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          }
+        });
+        apiDeleted = res.ok;
+      } catch (e) {}
+
+      if (supaDeleted || apiDeleted) {
         onShowToast('Produk berhasil dihapus');
         onRefreshData();
       }

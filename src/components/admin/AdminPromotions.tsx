@@ -62,10 +62,12 @@ export const AdminPromotions: React.FC<AdminPromotionsProps> = ({
     };
 
     try {
+      let supaSuccess = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await savePromotionToSupabase(client, payload);
+          supaSuccess = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase promo save failed, falling back to API:', supaErr);
         }
@@ -73,19 +75,26 @@ export const AdminPromotions: React.FC<AdminPromotionsProps> = ({
 
       const url = editing ? `/api/admin/promotions/${editing.id}` : '/api/admin/promotions';
       const method = editing ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
+      let apiSuccess = false;
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          },
+          body: JSON.stringify(payload)
+        });
+        apiSuccess = res.ok;
+      } catch (e) {}
+
+      if (supaSuccess || apiSuccess) {
         onShowToast('Promo berhasil disimpan!');
         setModalOpen(false);
         onRefreshData();
+      } else {
+        onShowToast('Gagal menyimpan promo', 'error');
       }
     } catch (err) {
       onShowToast('Gagal menyimpan promo', 'error');
@@ -95,25 +104,34 @@ export const AdminPromotions: React.FC<AdminPromotionsProps> = ({
   const handleDelete = async (id: string) => {
     if (!window.confirm('Hapus promo ini?')) return;
     try {
+      let supaDeleted = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await deletePromotionFromSupabase(client, id);
+          supaDeleted = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase promo delete failed, falling back to API:', supaErr);
         }
       }
 
-      const res = await fetch(`/api/admin/promotions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        }
-      });
-      if (res.ok) {
+      let apiDeleted = false;
+      try {
+        const res = await fetch(`/api/admin/promotions/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          }
+        });
+        apiDeleted = res.ok;
+      } catch (e) {}
+
+      if (supaDeleted || apiDeleted) {
         onShowToast('Promo dihapus');
         onRefreshData();
+      } else {
+        onShowToast('Gagal menghapus promo', 'error');
       }
     } catch (err) {
       onShowToast('Gagal menghapus promo', 'error');

@@ -52,10 +52,12 @@ export const AdminServices: React.FC<AdminServicesProps> = ({
     e.preventDefault();
     const payload = { id: editing?.id, name, description, icon, badge, image, is_active: isActive };
     try {
+      let supaSuccess = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await saveServiceToSupabase(client, payload);
+          supaSuccess = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase service save failed, falling back to API:', supaErr);
         }
@@ -63,19 +65,26 @@ export const AdminServices: React.FC<AdminServicesProps> = ({
 
       const url = editing ? `/api/admin/services/${editing.id}` : '/api/admin/services';
       const method = editing ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
+      let apiSuccess = false;
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          },
+          body: JSON.stringify(payload)
+        });
+        apiSuccess = res.ok;
+      } catch (e) {}
+
+      if (supaSuccess || apiSuccess) {
         onShowToast('Layanan berhasil disimpan!');
         setModalOpen(false);
         onRefreshData();
+      } else {
+        onShowToast('Gagal menyimpan layanan', 'error');
       }
     } catch (err) {
       onShowToast('Gagal menyimpan layanan', 'error');
@@ -85,25 +94,34 @@ export const AdminServices: React.FC<AdminServicesProps> = ({
   const handleDelete = async (id: string) => {
     if (!window.confirm('Hapus layanan ini?')) return;
     try {
+      let supaDeleted = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await deleteServiceFromSupabase(client, id);
+          supaDeleted = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase service delete failed, falling back to API:', supaErr);
         }
       }
 
-      const res = await fetch(`/api/admin/services/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        }
-      });
-      if (res.ok) {
+      let apiDeleted = false;
+      try {
+        const res = await fetch(`/api/admin/services/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          }
+        });
+        apiDeleted = res.ok;
+      } catch (e) {}
+
+      if (supaDeleted || apiDeleted) {
         onShowToast('Layanan berhasil dihapus');
         onRefreshData();
+      } else {
+        onShowToast('Gagal menghapus layanan', 'error');
       }
     } catch (err) {
       onShowToast('Gagal menghapus layanan', 'error');

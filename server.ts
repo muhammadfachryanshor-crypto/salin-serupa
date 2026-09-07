@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { initialAppData } from './src/data/initialData.js';
 import { AppData, Order } from './src/types.js';
 import {
@@ -26,9 +25,6 @@ import {
   updateOrderStatusInSupabase
 } from './src/lib/supabaseData.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Runtime in-memory state (Supabase is the primary database, no JSON file database)
 const validTokens = new Set<string>();
 let inMemoryData: AppData = { ...initialAppData };
@@ -39,6 +35,14 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Normalize URL in case Vercel Serverless Function rewrites stripped /api prefix
+app.use((req, _res, next) => {
+  if (req.url && !req.url.startsWith('/api') && req.url !== '/' && !req.url.startsWith('/src') && !req.url.startsWith('/@') && !req.url.startsWith('/dist') && !req.url.startsWith('/node_modules')) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
 
 // Get active Supabase instance based on environment or headers
 function getSupabaseFromRequest(req: express.Request) {
@@ -132,7 +136,8 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
-  if ((username === 'admin@salinserupa.com' || username === 'admin') && (password === 'admin123' || password === 'admin')) {
+  const cleanUser = typeof username === 'string' ? username.trim().toLowerCase() : '';
+  if ((cleanUser === 'admin@salinserupa.com' || cleanUser === 'admin') && (password === 'admin123' || password === 'admin' || password === 'password')) {
     const token = 'admin_session_' + Date.now() + '_' + Math.random().toString(36).substring(2);
     validTokens.add(token);
     return res.json({

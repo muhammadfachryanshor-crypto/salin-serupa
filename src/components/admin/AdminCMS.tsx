@@ -59,26 +59,32 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
     };
 
     try {
+      let supaSuccess = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await saveLandingToSupabase(client, updatedLanding);
+          supaSuccess = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase CMS save failed, falling back to API:', supaErr);
         }
       }
 
-      const res = await fetch('/api/admin/landing', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        },
-        body: JSON.stringify(updatedLanding)
-      });
+      let apiSuccess = false;
+      try {
+        const res = await fetch('/api/admin/landing', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            ...getSupabaseHeaders()
+          },
+          body: JSON.stringify(updatedLanding)
+        });
+        apiSuccess = res.ok;
+      } catch (e) {}
 
-      if (res.ok) {
+      if (supaSuccess || apiSuccess) {
         onShowToast('Konten Landing Page (CMS) berhasil diperbarui!');
         onRefreshData();
       } else {

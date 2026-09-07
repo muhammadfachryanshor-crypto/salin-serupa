@@ -183,10 +183,12 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
     };
 
     try {
+      let supaSuccess = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await saveSettingsToSupabase(client, updatedSettings);
+          supaSuccess = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase save failed, falling back to API:', supaErr);
         }
@@ -198,13 +200,17 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
         ...getSupabaseHeaders()
       };
 
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(updatedSettings)
-      });
+      let apiSuccess = false;
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(updatedSettings)
+        });
+        apiSuccess = res.ok;
+      } catch (e) {}
 
-      if (res.ok) {
+      if (supaSuccess || apiSuccess) {
         onShowToast('Pengaturan toko berhasil tersimpan!');
         onRefreshData();
       } else {

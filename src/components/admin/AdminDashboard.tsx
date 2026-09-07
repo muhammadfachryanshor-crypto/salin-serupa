@@ -68,38 +68,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     try {
+      let supaSuccess = false;
       const client = getSupabaseClient();
       if (client) {
         try {
           await updateOrderStatusInSupabase(client, orderId, status);
+          supaSuccess = true;
         } catch (supaErr: any) {
           console.warn('Direct Supabase order status update failed, falling back to API:', supaErr);
         }
       }
 
-      let res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          ...getSupabaseHeaders()
-        },
-        body: JSON.stringify({ status })
-      });
-
-      if (!res.ok) {
-        // Fallback endpoint
-        res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+      let apiSuccess = false;
+      try {
+        let res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
             ...getSupabaseHeaders()
           },
           body: JSON.stringify({ status })
         });
-      }
 
-      if (res.ok) {
+        if (!res.ok) {
+          // Fallback endpoint
+          res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getSupabaseHeaders()
+            },
+            body: JSON.stringify({ status })
+          });
+        }
+        apiSuccess = res.ok;
+      } catch (e) {}
+
+      if (supaSuccess || apiSuccess) {
         onShowToast(`Status pesanan ${orderId} diubah menjadi "${status}"`);
       } else {
         onShowToast('Gagal memperbarui status pesanan di server', 'error');
